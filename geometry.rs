@@ -381,8 +381,8 @@ impl RaySphere {
 ////      RayTriangle       ////
 ////////////////////////////////
 struct RayTriangle {
-    v1:             ~Point3D,
-    v2:             ~Point3D,
+    // v1:             ~Point3D,
+    // v2:             ~Point3D,
     normal:         ~Point3D,
     distance:       f64,
     vertexes:       ~[~RayVertex],
