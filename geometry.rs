@@ -161,6 +161,12 @@ impl Point3D {
                                                         coord3]};
         new_point
     }
+
+    fn makeNegative<'a>(&'a mut self) {
+        *self.index_mutref(0) = -self.index(0);
+        *self.index_mutref(1) = -self.index(1);
+        *self.index_mutref(2) = -self.index(2);
+    }
 }
 
 ////////////////////////////////
@@ -210,8 +216,16 @@ pub struct Plane3D {
 
 impl Plane3D {
     //double evaluate(const Point3D& p) const;
-    //double operator()(const Point3D& p) const;
+    fn evaluate<'a>(&'a self, p: &Point3D) -> f64 {
+        self.normal.dotproduct(p) + self.distance
+    }
     //void makePositive(const Point3D& p);
+    fn makePositive<'a>(&'a mut self, p: & Point3D) {
+        if (self.evaluate(p) < 0.0) {
+            self.normal.makeNegative();
+            self.distance = -self.distance;
+        }
+    }
 }
 
 ////////////////////////////////
@@ -412,11 +426,5 @@ impl RayTriangle {
     }
 }
 
-fn main(){
-
+fn main(){ 
 }
-
-
-
-
-
