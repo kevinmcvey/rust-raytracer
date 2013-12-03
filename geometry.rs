@@ -176,10 +176,6 @@ impl Ray3D {
         let temp = &self.direction.scale(scale);
         self.position.add_copy(temp)
     }
-    // fn index<'a>(@mut self, scale: f64) -> @mut Point3D{
-    //     let temp = &self.direction.scale(scale);
-    //     self.position.add_copy(temp)
-    // }
 
     fn add<'a>(&'a mut self, other: &Ray3D) -> &'a mut Ray3D {
         self.position.add(other.position);
@@ -227,13 +223,23 @@ struct RayVertex{
     normal:     ~Point3D
 }
 
+////////////////////////////////
+////       RayMaterial      ////
+////////////////////////////////
+struct RayMaterial {
+    emissive:   ~Point3D,
+    ambient:    ~Point3D,
+    diffuse:    ~Point3D,
+    specular:   ~Point3D,
+    specularFallOff: f64,
+}
 
 ////////////////////////////////
 ////   RayIntersectionInfo  ////
 ////////////////////////////////
 struct RayIntersectionInfo {
     /*The material of the intersected surface*/
-    //material: RayMaterial,
+    material: RayMaterial,
 
     /*Position, in world coordinates, of the interstion*/
     iCoordinate:    ~Point3D,
@@ -273,14 +279,54 @@ impl RayCamera {
 ////  RayDirectionalLight   ////
 ////////////////////////////////
 struct RayDirectionalLight {
-    direction:      ~Point3D
+    direction:      ~Point3D,
+    color:          ~Point3D
 }
 
 impl RayDirectionalLight {
-    //int read(FILE* fp);
-    //void write(FILE* fp=stdout);
     //Point3D getDiffuse(Point3D cameraPosition, struct RayIntersectionInfo& iInfo)
+    fn getDiffuse<'a>(&'a mut self, iInfo: & mut RayIntersectionInfo) -> Point3D{
+        let mut dDotP = (self.direction.scale(-1.0)).dotproduct(iInfo.normal);
+        /*
+            Sphere
+            Emissive 0 0 0
+            Ambient  0 0 0 
+            Diffuse  0.25 0.25 0.25
+            Specular 1 1 1
+            SFO 128
+            colorobj 0.75 0.75 0.75
+
+            Triangle
+            0 0 0
+            0.3 0.3 0.3
+            0.1 0.1 0.5
+            1 1 1
+            100
+            0 0 0
+        */
+        if (dDotP < 0.0) { 
+            dDotP = 0.0;
+        }
+        self.color.mul_copy(iInfo.material.diffuse).scale(dDotP)
+    }
+
     //Point3D getSpecular(Point3D cameraPosition, struct RayIntersectionInfo& iInfo)
+    fn getSpecular<'a>(&'a mut self, cameraPosition: Point3D, iInfo: & mut RayIntersectionInfo) -> Point3D {
+        let alpha: f64 = iInfo.material.specularFallOff;
+
+        let r: Point3D = ((iInfo.normal.scale(
+                                (self.direction.scale(-1.0).dotproduct(iInfo.normal)) * 2.0)).sub_copy(
+                                &self.direction.scale(-1.0).unit()));
+        let v: Point3D = cameraPosition.sub_copy(iInfo.iCoordinate).unit();
+        let mut sDotP: f64 = r.dotproduct(&v);
+
+        if (sDotP < 0.0){
+            sDotP = 0.0;
+        }
+
+        self.color.mul_copy(iInfo.material.specular).scale(num::pow(sDotP, alpha))
+    }
+
     //int isInShadow(struct RayIntersectionInfo& iInfo, class RayShape* shape, int& isectCount)
     //Point3D transparency(struct RayIntersectionInfo& iInfo, class RayShape* shape, Point3D cLimit)
 }
@@ -290,13 +336,11 @@ impl RayDirectionalLight {
 ////////////////////////////////
 struct RaySphere {
     center:         ~Point3D,
-    radius:         f64
+    radius:         f64,
+    material:       ~RayMaterial,
 }
 
 impl RaySphere {
-    //int read(FILE* fp, int* materialIndex, RayVertex* vList, int vSize);
-    //void write(int indent, FILE* fp=stdout);
-
     //double intersect(Ray3D ray, struct RayIntersectionInfo& iInfo, double mx=-1);
     fn intersect<'a>(&'a mut self, ray: Ray3D, iInfo: & mut RayIntersectionInfo, mx: f64) -> f64{
         let length:     f64 = (self.center.sub_copy(ray.position)).length();
@@ -310,6 +354,7 @@ impl RaySphere {
             let dist = length - num::sqrt((self.radius * self.radius) - (check * check));
 
             if(dist > 0.0 && (dist < mx || mx <= 0.0)){
+
                 iInfo.iCoordinate = ray.index(dist).copy();
                 iInfo.normal = (iInfo.iCoordinate.sub_copy(self.center)).unit().copy();
             }
@@ -327,7 +372,8 @@ struct RayTriangle {
     normal:         ~Point3D,
     distance:       f64,
     vertexes:       ~[~RayVertex],
-    plane:          ~Plane3D
+    plane:          ~Plane3D,
+    material:       ~RayMaterial,
 }
 
 impl RayTriangle {
