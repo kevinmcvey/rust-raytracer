@@ -35,19 +35,19 @@ impl Point3D {
                                 coord3]}
     }
 
-    fn dotproduct<'a>(&'a mut self, other: &Point3D) -> f64 {
+    fn dotproduct<'a>(&'a self, other: &Point3D) -> f64 {
         self.index(0) * other.index(0) +
         self.index(1) * other.index(1) +
         self.index(2) * other.index(2)
     }
 
-    fn squareNorm<'a>(&'a mut self) -> f64 {
+    fn squareNorm<'a>(&'a self) -> f64 {
         self.index(0) * self.index(0) + 
         self.index(1) * self.index(1) +
         self.index(2) * self.index(2)
     }
 
-    fn length<'a>(&'a mut self) -> f64 {
+    fn length<'a>(&'a self) -> f64 {
         num::sqrt(self.squareNorm())
     }
 
@@ -219,6 +219,16 @@ impl Plane3D {
 }
 
 ////////////////////////////////
+////       RayVertex        ////
+////////////////////////////////
+struct RayVertex{
+    index:      int,
+    position:   ~Point3D,
+    normal:     ~Point3D
+}
+
+
+////////////////////////////////
 ////   RayIntersectionInfo  ////
 ////////////////////////////////
 struct RayIntersectionInfo {
@@ -226,10 +236,10 @@ struct RayIntersectionInfo {
     //material: RayMaterial,
 
     /*Position, in world coordinates, of the interstion*/
-    iCoordinate: ~Point3D,
+    iCoordinate:    ~Point3D,
 
     /*The normal of the shape at the point of the intersection*/
-    normal: Point3D
+    normal:         ~Point3D
 
     /*The texture coordinates of the shape at the point of intersection*/
     //texCoordinates: Point2D
@@ -291,7 +301,6 @@ impl RaySphere {
     fn intersect<'a>(&'a mut self, ray: Ray3D, iInfo: & mut RayIntersectionInfo, mx: f64) -> f64{
         let length:     f64 = (self.center.sub_copy(ray.position)).length();
         let check:      f64 = (self.center.sub_copy(ray.index(length))).length();
-        // let mut dist:   f64 = 0.0;
 
         if(check > self.radius) {
             return -1.0;
@@ -302,7 +311,7 @@ impl RaySphere {
 
             if(dist > 0.0 && (dist < mx || mx <= 0.0)){
                 iInfo.iCoordinate = ray.index(dist).copy();
-                iInfo.normal = (iInfo.iCoordinate.sub_copy(self.center)).unit();
+                iInfo.normal = (iInfo.iCoordinate.sub_copy(self.center)).unit().copy();
             }
             dist
         }        
@@ -315,6 +324,9 @@ impl RaySphere {
 struct RayTriangle {
     v1:             ~Point3D,
     v2:             ~Point3D,
+    normal:         ~Point3D,
+    distance:       f64,
+    vertexes:       ~[~RayVertex],
     plane:          ~Plane3D
 }
 
@@ -322,12 +334,36 @@ impl RayTriangle {
     //int read(FILE* fp, int* materialIndex, RayVertex* vList, int vSize);
     //void write(int indent, FILE* fp=stdout);
     //double intersect(Ray3D ray, struct RayIntersectionInfo& iInfo, double mx=-1);
-    // fn intersect<'a>(&'a mut self, ray: Ray3D, iInfo: & mut RayIntersectionInfo, mx: f64) -> f64{
-    //     let mut t: f64 = 0.0;
-    //     let mut dot0: f64 = 0.0;
+    fn intersect<'a>(&'a mut self, ray: Ray3D, iInfo: & mut RayIntersectionInfo, mx: f64) -> f64{
+        let t: f64 = -( (ray.position.dotproduct(self.normal) + self.distance) / 
+                        (ray.direction.dotproduct(self.normal)));
 
-    //     0.0
-    // }
+        if (t > 0.0 && (t < mx || mx < 0.0)){
+            let point: @mut Point3D = ray.index(t);
+           
+            let sN0: Point3D = ((&self.vertexes[1].position.sub_copy(ray.position)).xproduct_copy(
+                                     &self.vertexes[0].position.sub_copy(ray.position))).unit();
+            let sN1: Point3D = ((&self.vertexes[2].position.sub_copy(ray.position)).xproduct_copy(
+                                     &self.vertexes[1].position.sub_copy(ray.position))).unit();
+            let sN2: Point3D = ((&self.vertexes[0].position.sub_copy(ray.position)).xproduct_copy(
+                                     &self.vertexes[2].position.sub_copy(ray.position))).unit();
+            let dot0: f64 = (point.sub_copy(ray.position).unit().dotproduct(&sN0));
+            let dot1: f64 = (point.sub_copy(ray.position).unit().dotproduct(&sN1));
+            let dot2: f64 = (point.sub_copy(ray.position).unit().dotproduct(&sN2));
+
+            if (dot0 > 0.0 && dot1 > 0.0 && dot2 > 0.0){
+                iInfo.iCoordinate = point.copy();
+                iInfo.normal = self.normal.copy();
+                t
+            }
+            else {
+                -1.0
+            }
+        }
+        else{
+            0.0
+        }
+    }
 }
 
 fn main(){
