@@ -18,7 +18,7 @@ impl Point3D {
         self.position[index]
     }
 
-    fn scale<'a>(&'a mut self, scale: f64) -> Point3D {
+    fn scale<'a>(&'a self, scale: f64) -> Point3D {
         let new_point: Point3D = 
                 Point3D { position: ~[  self.index(0) * scale,
                                         self.index(1) * scale,
@@ -81,11 +81,11 @@ impl Point3D {
         self
     }
 
-    fn add_copy<'a>(&'a mut self, other: &Point3D) -> Point3D {
+    fn add_copy<'a>(&'a self, other: &Point3D) -> @mut Point3D {
         let coord1: f64 = self.index(0) + other.index(0);
         let coord2: f64 = self.index(1) + other.index(1);
         let coord3: f64 = self.index(2) + other.index(2);
-        let new_point: Point3D = Point3D { position: ~[ coord1,
+        let new_point: @mut Point3D = @mut Point3D { position: ~[ coord1,
                                                         coord2,
                                                         coord3]};
         new_point
@@ -98,7 +98,7 @@ impl Point3D {
         self
     }
 
-    fn sub_copy<'a>(&'a mut self, other: &Point3D) -> Point3D {
+    fn sub_copy<'a>(&'a self, other: &Point3D) -> Point3D {
         let coord1: f64 = self.index(0) - other.index(0);
         let coord2: f64 = self.index(1) - other.index(1);
         let coord3: f64 = self.index(2) - other.index(2);
@@ -115,7 +115,7 @@ impl Point3D {
         self
     }
 
-    fn mul_copy<'a>(&'a mut self, other: &Point3D) -> Point3D {
+    fn mul_copy<'a>(&'a self, other: &Point3D) -> Point3D {
         let coord1: f64 = self.index(0) * other.index(0);
         let coord2: f64 = self.index(1) * other.index(1);
         let coord3: f64 = self.index(2) * other.index(2);
@@ -132,7 +132,7 @@ impl Point3D {
         self
     }
 
-    fn div_copy<'a>(&'a mut self, other: &Point3D) -> Point3D {
+    fn div_copy<'a>(&'a self, other: &Point3D) -> Point3D {
         let coord1: f64 = self.index(0) / other.index(0);
         let coord2: f64 = self.index(1) / other.index(1);
         let coord3: f64 = self.index(2) / other.index(2);
@@ -152,7 +152,7 @@ impl Point3D {
         self
     }
 
-    fn xproduct_copy<'a>(&'a mut self, other: &Point3D) -> Point3D {
+    fn xproduct_copy<'a>(&'a self, other: &Point3D) -> Point3D {
         let coord1: f64 = self.index(1) * other.index(2) - self.index(2) * other.index(1);
         let coord2: f64 = self.index(0) * other.index(2) + self.index(2) * other.index(0);
         let coord3: f64 = self.index(0) * other.index(1) - self.index(1) * other.index(0);
@@ -172,10 +172,14 @@ pub struct Ray3D {
 }
 
 impl Ray3D {
-    fn operator<'a>(&'a mut self, scale: f64) -> Point3D{
+    fn index<'a>(&'a self, scale: f64) -> @mut Point3D{
         let temp = &self.direction.scale(scale);
         self.position.add_copy(temp)
     }
+    // fn index<'a>(@mut self, scale: f64) -> @mut Point3D{
+    //     let temp = &self.direction.scale(scale);
+    //     self.position.add_copy(temp)
+    // }
 
     fn add<'a>(&'a mut self, other: &Ray3D) -> &'a mut Ray3D {
         self.position.add(other.position);
@@ -222,7 +226,7 @@ struct RayIntersectionInfo {
     //material: RayMaterial,
 
     /*Position, in world coordinates, of the interstion*/
-    iCoordinate: Point3D,
+    iCoordinate: ~Point3D,
 
     /*The normal of the shape at the point of the intersection*/
     normal: Point3D
@@ -281,15 +285,27 @@ struct RaySphere {
 
 impl RaySphere {
     //int read(FILE* fp, int* materialIndex, RayVertex* vList, int vSize);
-    // fn read
     //void write(int indent, FILE* fp=stdout);
 
     //double intersect(Ray3D ray, struct RayIntersectionInfo& iInfo, double mx=-1);
-    fn intersect(&mut self, ray: Ray3D, iInfo: &RayIntersectionInfo, mx: f64) -> f64{
-        let length  = (self.center.sub_copy(ray.position)).length();
-        let mut tempRay = ray.operator(length).copy().clone();
-        let check   = (self.center.sub_copy(tempRay)).length();
-        0.0
+    fn intersect<'a>(&'a mut self, ray: Ray3D, iInfo: & mut RayIntersectionInfo, mx: f64) -> f64{
+        let length:     f64 = (self.center.sub_copy(ray.position)).length();
+        let check:      f64 = (self.center.sub_copy(ray.index(length))).length();
+        // let mut dist:   f64 = 0.0;
+
+        if(check > self.radius) {
+            return -1.0;
+        }
+        else {
+            
+            let dist = length - num::sqrt((self.radius * self.radius) - (check * check));
+
+            if(dist > 0.0 && (dist < mx || mx <= 0.0)){
+                iInfo.iCoordinate = ray.index(dist).copy();
+                iInfo.normal = (iInfo.iCoordinate.sub_copy(self.center)).unit();
+            }
+            dist
+        }        
     }
 }
 
@@ -306,6 +322,12 @@ impl RayTriangle {
     //int read(FILE* fp, int* materialIndex, RayVertex* vList, int vSize);
     //void write(int indent, FILE* fp=stdout);
     //double intersect(Ray3D ray, struct RayIntersectionInfo& iInfo, double mx=-1);
+    // fn intersect<'a>(&'a mut self, ray: Ray3D, iInfo: & mut RayIntersectionInfo, mx: f64) -> f64{
+    //     let mut t: f64 = 0.0;
+    //     let mut dot0: f64 = 0.0;
+
+    //     0.0
+    // }
 }
 
 fn main(){
