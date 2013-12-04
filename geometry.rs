@@ -58,9 +58,9 @@ impl Point3D {
     }
 
     fn clamp<'a>(&'a mut self) -> Point3D {
-        let mut coord1: f64 = 0.0;
-        let mut coord2: f64 = 0.0;
-        let mut coord3: f64 = 0.0;
+        let mut coord1: f64 = self.position[0];
+        let mut coord2: f64 = self.position[1];
+        let mut coord3: f64 = self.position[2];
 
         if (self.index(0) > 1.0) { coord1 = 1.0; }
         else if (self.index(0) < 0.0) { coord1 = 0.0;}
@@ -241,6 +241,7 @@ struct RayVertex{
 ////////////////////////////////
 ////       RayMaterial      ////
 ////////////////////////////////
+#[deriving(Clone)]
 struct RayMaterial {
     emissive:   ~Point3D,
     ambient:    ~Point3D,
@@ -325,13 +326,12 @@ impl RayDirectionalLight {
         self.color.mul_copy(iInfo.material.diffuse).scale(dDotP)
     }
 
-    //Point3D getSpecular(Point3D cameraPosition, struct RayIntersectionInfo& iInfo)
     fn getSpecular<'a>(&'a mut self, cameraPosition: Point3D, iInfo: & mut RayIntersectionInfo) -> Point3D {
         let alpha: f64 = iInfo.material.specularFallOff;
 
         let r: Point3D = ((iInfo.normal.scale(
                                 (self.direction.scale(-1.0).dotproduct(iInfo.normal)) * 2.0)).sub_copy(
-                                &self.direction.scale(-1.0).unit()));
+                                &self.direction.scale(-1.0))).unit();
         let v: Point3D = cameraPosition.sub_copy(iInfo.iCoordinate).unit();
         let mut sDotP: f64 = r.dotproduct(&v);
 
@@ -372,6 +372,7 @@ impl RaySphere {
 
                 iInfo.iCoordinate = ray.index(dist).copy();
                 iInfo.normal = (iInfo.iCoordinate.sub_copy(self.center)).unit().copy();
+		iInfo.material = *self.material.clone();
             }
             dist
         }        
@@ -415,6 +416,7 @@ impl RayTriangle {
             if (dot0 > 0.0 && dot1 > 0.0 && dot2 > 0.0){
                 iInfo.iCoordinate = point.copy();
                 iInfo.normal = self.normal.copy();
+		iInfo.material = *self.material.clone();
                 t
             }
             else {
@@ -437,8 +439,17 @@ struct color
 }
 
 fn main() {
-	let image_width = 500.0;
-	let image_height = 500.0;
+	/////////////////
+	// Image Plane //
+	/////////////////
+	let image_width = 250.0;
+	let image_height = 250.0;
+
+	////////////////
+	//   Scene    //
+	////////////////
+	let background = Point3D { position: ~[0.25, 0.25, 0.25] };
+	let ambient = Point3D { position: ~[0.5, 0.5, 0.5] };
 
 	////////////////
 	// Triangle 1 //
@@ -494,11 +505,19 @@ fn main() {
 		right: ~Point3D { position: ~[-1.0, 0.0, 0.0] }
 	};
 
+	////////////////
+	//   Light    //
+	////////////////
+	let mut dir_light: RayDirectionalLight = RayDirectionalLight {
+		direction: ~Point3D { position: ~[-1.0, -1.0, 0.0] },
+		color: ~Point3D { position: ~[1.0, 1.0, 1.0] }
+	};
+
 	///////////////////////////////////
 	// Cast rays through image plane //
 	///////////////////////////////////
-	let mut x = 0.0;
-	let mut y = 0.0;
+	let mut x = image_width;
+	let mut y = image_height;
 	let d = 1.0;
 	let theta = camera.heightAngle / 2.0;
 	let phi = (camera.aspectRatio * camera.heightAngle) / 2.0;
@@ -523,27 +542,37 @@ fn main() {
 	let mut int_length = 0.0;
 	let mut colormap: ~[color] = ~[];
 
-	while(y < image_height)	{
-		while(x < image_width) {
+	while(y > 0.0)	{
+		while(x > 0.0) {
 			destY = rUp.index((((y + 0.5) - (image_height / 2.0)) / image_height)).add_copy(&rForward.index(d).sub_copy(camera.position.clone()));
 			destX = rRight.index((((x + 0.5) - (image_width / 2.0)) / image_width)).add_copy(&rForward.index(d).sub_copy(camera.position.clone()));
 			rayOut = Ray3D { position: camera.position.clone(),
 					 direction: ~destY.sub_copy(camera.position.clone()).add_copy(&destX.sub_copy(camera.position.clone())).unit() };
 
-			int_length = triangle_1.intersect(rayOut, rii, -1.0);
+			int_length = sphere.intersect(rayOut, rii, -1.0);
 
 			if(int_length > 0.0) {
-				let tmp: color = color { red: 1.0, blue: 1.0, green: 1.0 };
+				// Hit, get color
+				let hit_ambient = rii.material.ambient.mul_copy(&ambient);
+				let hit_emissive = rii.material.emissive.mul_copy(&(Point3D { position: ~[1.0, 1.0, 1.0] }));
+				let hit_diffuse = dir_light.getDiffuse(rii);
+				let hit_specular = dir_light.getSpecular(*camera.position.clone(), rii);
+				let hit_color = hit_ambient.add_copy(&hit_emissive).add_copy(&hit_diffuse).add_copy(&hit_specular).clamp();
+				//let hit_color = hit_ambient.add_copy(&hit_emissive).add_copy(&hit_diffuse).add_copy(&hit_specular);
+				//TODO: DOUBLE CHECK CLAMP FUNCTION HERE.
+
+				let tmp: color = color { red: hit_color.position[0] as float, blue: hit_color.position[2] as float, green: hit_color.position[1] as float };
 				colormap.push(tmp);
 			} else {
-				let tmp: color = color { red: 0.0, blue: 0.0, green: 0.0 };
+				// No hit, render background
+				let tmp: color = color { red: background.position[0] as float, blue: background.position[1] as float, green: background.position[2] as float };
 				colormap.push(tmp);
 			}
 
-			x += 1.0;
+			x -= 1.0;
 		}
-		x = 0.0;
-		y += 1.0;
+		x = image_width;
+		y -= 1.0;
 	}
 
 	// reset x and y
