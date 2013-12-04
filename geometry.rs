@@ -1,3 +1,6 @@
+extern mod extra;
+
+
 use std::ops::{Index};//,Add,Sub,Mul,Div,BitXor};
 use std::num;
 
@@ -10,6 +13,9 @@ use std::str;
 use std::f32::*;
 use std::f32;
 use std::float;
+
+use extra::arc;
+
 
 ////////////////////////////////
 ////        Point3D         ////
@@ -315,8 +321,8 @@ struct RayDirectionalLight {
 }
 
 impl RayDirectionalLight {
-    //Point3D getDiffuse(Point3D cameraPosition, struct RayIntersectionInfo& iInfo)
-    fn getDiffuse<'a>(&'a mut self, iInfo: & mut RayIntersectionInfo) -> Point3D{
+    
+    fn getDiffuse<'a>(&'a self, iInfo: & mut RayIntersectionInfo) -> Point3D{
         let mut dDotP = (self.direction.scale(-1.0)).dotproduct(iInfo.normal);
         /*
             Sphere
@@ -341,7 +347,7 @@ impl RayDirectionalLight {
         self.color.mul_copy(iInfo.material.diffuse).scale(dDotP)
     }
 
-    fn getSpecular<'a>(&'a mut self, cameraPosition: Point3D, iInfo: & mut RayIntersectionInfo) -> Point3D {
+    fn getSpecular<'a>(&'a self, cameraPosition: Point3D, iInfo: & mut RayIntersectionInfo) -> Point3D {
         let alpha: f64 = iInfo.material.specularFallOff;
 
         let r: Point3D = ((iInfo.normal.scale(
@@ -717,8 +723,8 @@ fn main() {
 	/////////////////
 	// Image Plane //
 	/////////////////
-	let image_width = 250.0;
-	let image_height = 250.0;
+	let image_width: f64 = 250.0;
+	let image_height: f64 = 250.0;
 
 	////////////////
 	//   Scene    //
@@ -806,98 +812,126 @@ fn main() {
 	///////////////////////////////////
 	let mut x = image_width;
 	let mut y = image_height;
-	let d = 1.0;
-	let theta = camera.heightAngle / 2.0;
-	let phi = (camera.aspectRatio * camera.heightAngle) / 2.0;
-	let rUp = Ray3D { position: camera.position.clone(), direction: ~camera.up.clone().unit() };
-	let rRight = Ray3D { position: camera.position.clone(), direction: ~camera.right.clone().unit() };
-	let rForward = Ray3D { position: camera.position.clone(), direction: ~camera.direction.clone().unit() };
 
-	let mut destX: @mut Point3D;
-	let mut destY: @mut Point3D;
-	let mut rayOut: Ray3D;
+    let mut colormap: ~[color] = ~[];
+    let shared_colormap = arc::RWArc::new(colormap);
+    let shared_scene_spheres = arc::Arc::new(scene_spheres);
+    let shared_scene_triangles = arc::Arc::new(scene_triangles);
+    let shared_camera = arc::Arc::new(camera);
+    let shared_dir_light = arc::Arc::new(dir_light);
+    let shared_ambient = arc::Arc::new(ambient);
+    let shared_background = arc::Arc::new(background);
 
-	// Must construct ray intersection info and temporary info for intersection calculations.
-	//   Populating with blank values is necessary to keep it working as we do a lot of cloning
-	//   up ahead.
-	let mut rii = &mut RayIntersectionInfo {
-				material: RayMaterial {
-					emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-					ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-					diffuse: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-					specular: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-					specularFallOff: 0.0
-				},
-				iCoordinate: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-				normal: ~Point3D { position: ~[0.0, 0.0, 0.0] }
-			};
-	let mut rii_temp = &mut RayIntersectionInfo {
-				material: RayMaterial {
-					emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-					ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-					diffuse: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-					specular: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-					specularFallOff: 0.0
-				},
-				iCoordinate: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-				normal: ~Point3D { position: ~[0.0, 0.0, 0.0] }
-			};
-
-	let mut int_length = 0.0;
+	
 	let mut colormap: ~[color] = ~[];
 
 	// Now we iterate through the image plane
 	while(y > 0.0)	{
 		while(x > 0.0) {
-			destY = rUp.index((((y + 0.5) - (image_height / 2.0)) / image_height)).add_copy(&rForward.index(d).sub_copy(camera.position.clone()));
-			destX = rRight.index((((x + 0.5) - (image_width / 2.0)) / image_width)).add_copy(&rForward.index(d).sub_copy(camera.position.clone()));
-			rayOut = Ray3D { position: camera.position.clone(),
-					 direction: ~destY.sub_copy(camera.position.clone()).add_copy(&destX.sub_copy(camera.position.clone())).unit() };
 
-			int_length = -1.0;
+            let task_colormap = shared_colormap.clone();
+            let task_scene_spheres = shared_scene_spheres.clone();
+            let task_scene_triangles = shared_scene_triangles.clone();
+            let task_camera = shared_camera.clone();            
+            let task_dir_light = shared_dir_light.clone();
+            let task_ambient = shared_ambient.clone();
+            let task_background = shared_background.clone();
+            let y_temp = y.clone();
+            let x_temp = x.clone();
 
-			// Intersect all spheres
-			for sph in scene_spheres.iter() {
-				let mut item = sph.clone();
-				let temp_intersection = item.intersect(rayOut.clone(), rii_temp, -1.0);
+            do spawn {
 
-				if(int_length == -1.0 || (temp_intersection < int_length && temp_intersection != -1.0)) {
-					rii.material = rii_temp.material.clone();
-					rii.iCoordinate = rii_temp.iCoordinate.clone();
-					rii.normal = rii_temp.normal.clone();
-					int_length = temp_intersection.clone();
-				}
-			}
+                let d = 1.0;
+                let mut int_length = 0.0;
+                let theta = task_camera.get().heightAngle / 2.0;
+                let phi = (task_camera.get().aspectRatio * task_camera.get().heightAngle) / 2.0;
+                let rUp = Ray3D { position: task_camera.get().position.clone(), direction: ~task_camera.get().up.clone().unit() };
+                let rRight = Ray3D { position: task_camera.get().position.clone(), direction: ~task_camera.get().right.clone().unit() };
+                let rForward = Ray3D { position: task_camera.get().position.clone(), direction: ~task_camera.get().direction.clone().unit() };
 
-			// Intersect all triangles
-			for tri in scene_triangles.iter() {
-				let mut item = tri.clone();
-				let temp_intersection = item.intersect(rayOut.clone(), rii_temp, -1.0);
 
-				if(int_length == -1.0 || (temp_intersection < int_length && temp_intersection != -1.0)) {
-					rii.material = rii_temp.material.clone();
-					rii.iCoordinate = rii_temp.iCoordinate.clone();
-					rii.normal = rii_temp.normal.clone();
-					int_length = temp_intersection.clone();
-				}
-			}
+                let mut destX: @mut Point3D;
+                let mut destY: @mut Point3D;
+                let mut rayOut: Ray3D;
 
-			if(int_length > 0.0) {
-				// Hit, get color
-				let hit_ambient = rii.material.ambient.mul_copy(&ambient);
-				let hit_emissive = rii.material.emissive.mul_copy(&(Point3D { position: ~[1.0, 1.0, 1.0] }));
-				let hit_diffuse = dir_light.getDiffuse(rii);
-				let hit_specular = dir_light.getSpecular(*camera.position.clone(), rii);
-				let hit_color = hit_ambient.add_copy(&hit_emissive).add_copy(&hit_diffuse).add_copy(&hit_specular).clamp();
+                // Must construct ray intersection info and temporary info for intersection calculations.
+                //   Populating with blank values is necessary to keep it working as we do a lot of cloning
+                //   up ahead.
+                let mut rii = &mut RayIntersectionInfo {
+                            material: RayMaterial {
+                                emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                                ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                                diffuse: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                                specular: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                                specularFallOff: 0.0
+                            },
+                            iCoordinate: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                            normal: ~Point3D { position: ~[0.0, 0.0, 0.0] }
+                        };
+                let mut rii_temp = &mut RayIntersectionInfo {
+                            material: RayMaterial {
+                                emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                                ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                                diffuse: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                                specular: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                                specularFallOff: 0.0
+                            },
+                            iCoordinate: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+                            normal: ~Point3D { position: ~[0.0, 0.0, 0.0] }
+                        };
 
-				let tmp: color = color { red: hit_color.position[0] as float, blue: hit_color.position[2] as float, green: hit_color.position[1] as float };
-				colormap.push(tmp);
-			} else {
-				// No hit, render background
-				let tmp: color = color { red: background.position[0] as float, blue: background.position[1] as float, green: background.position[2] as float };
-				colormap.push(tmp);
-			}
 
+    			destY = rUp.index((((y_temp + 0.5) - (image_height / 2.0)) / image_height)).add_copy(&rForward.index(d).sub_copy(task_camera.get().position.clone()));
+    			destX = rRight.index((((x_temp + 0.5) - (image_width / 2.0)) / image_width)).add_copy(&rForward.index(d).sub_copy(task_camera.get().position.clone()));
+    			rayOut = Ray3D { position: task_camera.get().position.clone(),
+    					 direction: ~destY.sub_copy(task_camera.get().position.clone()).add_copy(&destX.sub_copy(task_camera.get().position.clone())).unit() };
+
+    			int_length = -1.0;
+
+    			// Intersect all spheres
+    			for sph in task_scene_spheres.get().iter() {
+    				let mut item = sph.clone();
+    				let temp_intersection = item.intersect(rayOut.clone(), rii_temp, -1.0);
+
+    				if(int_length == -1.0 || (temp_intersection < int_length && temp_intersection != -1.0)) {
+    					rii.material = rii_temp.material.clone();
+    					rii.iCoordinate = rii_temp.iCoordinate.clone();
+    					rii.normal = rii_temp.normal.clone();
+    					int_length = temp_intersection.clone();
+    				}
+    			}
+
+    			// Intersect all triangles
+    			for tri in task_scene_triangles.get().iter() {
+    				let mut item = tri.clone();
+    				let temp_intersection = item.intersect(rayOut.clone(), rii_temp, -1.0);
+
+    				if(int_length == -1.0 || (temp_intersection < int_length && temp_intersection != -1.0)) {
+    					rii.material = rii_temp.material.clone();
+    					rii.iCoordinate = rii_temp.iCoordinate.clone();
+    					rii.normal = rii_temp.normal.clone();
+    					int_length = temp_intersection.clone();
+    				}
+    			}
+
+                do task_colormap.write |colormap| {
+        			if(int_length > 0.0) {
+        				// Hit, get color
+        				let hit_ambient = rii.material.ambient.mul_copy(task_ambient.get());
+        				let hit_emissive = rii.material.emissive.mul_copy(&(Point3D { position: ~[1.0, 1.0, 1.0] }));
+        				let hit_diffuse = task_dir_light.get().getDiffuse(rii);
+        				let hit_specular = task_dir_light.get().getSpecular(*task_camera.get().position.clone(), rii);
+        				let hit_color = hit_ambient.add_copy(&hit_emissive).add_copy(&hit_diffuse).add_copy(&hit_specular).clamp();
+
+        				let tmp: color = color { red: hit_color.position[0] as float, blue: hit_color.position[2] as float, green: hit_color.position[1] as float };
+        				colormap.push(tmp);
+        			} else {
+        				// No hit, render background
+        				let tmp: color = color { red: task_background.get().position[0] as float, blue: task_background.get().position[1] as float, green: task_background.get().position[2] as float };
+        				colormap.push(tmp);
+        			}
+                }
+            }
 			x -= 1.0;
 		}
 		x = image_width;
@@ -919,13 +953,15 @@ fn main() {
 			writer.write_line("255");
 			while y < image_height {
 				while x < image_width {
-					let red = (colormap[(y*image_width+x) as int].red * (255 as float) );
-					let green = (colormap[(y*image_width+x) as int].green * (255 as float) );
-					let blue = (colormap[(y*image_width+x) as int].blue * (255 as float) );
-					writer.write_str(fmt!("%? ", red as int));
-					writer.write_str(fmt!("%? ", green as int));
-					writer.write_str(fmt!("%? ", blue as int));
-					x += 1.0;
+                    do shared_colormap.write |colormap| {
+    					let red = (colormap[(y*image_width+x) as int].red * (255 as float) );
+    					let green = (colormap[(y*image_width+x) as int].green * (255 as float) );
+    					let blue = (colormap[(y*image_width+x) as int].blue * (255 as float) );
+    					writer.write_str(fmt!("%? ", red as int));
+    					writer.write_str(fmt!("%? ", green as int));
+    					writer.write_str(fmt!("%? ", blue as int));
+    					x += 1.0;
+                    }
 				}
 				writer.write_line("");
 				x = 0.0;
