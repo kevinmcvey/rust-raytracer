@@ -173,6 +173,7 @@ impl Point3D {
 ////////////////////////////////
 ////         Ray3D          ////
 ////////////////////////////////
+#[deriving(Clone)]
 pub struct Ray3D {
     position:       ~Point3D,
     direction:      ~Point3D
@@ -210,6 +211,7 @@ impl Ray3D {
 ////////////////////////////////
 ////        Plane3D         ////
 ////////////////////////////////
+#[deriving(Clone)]
 pub struct Plane3D {
     normal:         ~Point3D,
     distance:       f64
@@ -232,6 +234,7 @@ impl Plane3D {
 ////////////////////////////////
 ////       RayVertex        ////
 ////////////////////////////////
+#[deriving(Clone)]
 struct RayVertex{
     index:      int,
     position:   ~Point3D,
@@ -253,6 +256,7 @@ struct RayMaterial {
 ////////////////////////////////
 ////   RayIntersectionInfo  ////
 ////////////////////////////////
+#[deriving(Clone)]
 struct RayIntersectionInfo {
     /*The material of the intersected surface*/
     material: RayMaterial,
@@ -270,6 +274,7 @@ struct RayIntersectionInfo {
 ////////////////////////////////
 ////       RayCamera        ////
 ////////////////////////////////
+#[deriving(Clone)]
 struct RayCamera {
     color:          ~Point3D,
     heightAngle:    f64,
@@ -294,6 +299,7 @@ impl RayCamera {
 ////////////////////////////////
 ////  RayDirectionalLight   ////
 ////////////////////////////////
+#[deriving(Clone)]
 struct RayDirectionalLight {
     direction:      ~Point3D,
     color:          ~Point3D
@@ -349,6 +355,7 @@ impl RayDirectionalLight {
 ////////////////////////////////
 ////        RaySphere       ////
 ////////////////////////////////
+#[deriving(Clone)]
 struct RaySphere {
     center:         ~Point3D,
     radius:         f64,
@@ -382,6 +389,7 @@ impl RaySphere {
 ////////////////////////////////
 ////      RayTriangle       ////
 ////////////////////////////////
+#[deriving(Clone)]
 struct RayTriangle {
     // v1:             ~Point3D,
     // v2:             ~Point3D,
@@ -450,6 +458,8 @@ fn main() {
 	////////////////
 	let background = Point3D { position: ~[0.25, 0.25, 0.25] };
 	let ambient = Point3D { position: ~[0.5, 0.5, 0.5] };
+	let mut scene_triangles: ~[~RayTriangle] = ~[];
+	let mut scene_spheres: ~[~RaySphere] = ~[];
 
 	////////////////
 	// Triangle 1 //
@@ -476,6 +486,8 @@ fn main() {
 			specularFallOff: 100.0
 		}
 	};
+	
+	scene_triangles.push(~triangle_1);
 
 	////////////////
 	//   Sphere   //
@@ -491,6 +503,8 @@ fn main() {
 			specularFallOff: 128.0
 		}
 	};
+
+	scene_spheres.push(~sphere);
 
 	////////////////
 	//   Camera   //
@@ -528,6 +542,10 @@ fn main() {
 	let mut destX: @mut Point3D;
 	let mut destY: @mut Point3D;
 	let mut rayOut: Ray3D;
+
+	// Must construct ray intersection info and temporary info for intersection calculations.
+	//   Populating with blank values is necessary to keep it working as we do a lot of cloning
+	//   up ahead.
 	let mut rii = &mut RayIntersectionInfo {
 				material: RayMaterial {
 					emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
@@ -539,9 +557,22 @@ fn main() {
 				iCoordinate: ~Point3D { position: ~[0.0, 0.0, 0.0] },
 				normal: ~Point3D { position: ~[0.0, 0.0, 0.0] }
 			};
+	let mut rii_temp = &mut RayIntersectionInfo {
+				material: RayMaterial {
+					emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+					ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+					diffuse: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+					specular: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+					specularFallOff: 0.0
+				},
+				iCoordinate: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+				normal: ~Point3D { position: ~[0.0, 0.0, 0.0] }
+			};
+
 	let mut int_length = 0.0;
 	let mut colormap: ~[color] = ~[];
 
+	// Now we iterate through the image plane
 	while(y > 0.0)	{
 		while(x > 0.0) {
 			destY = rUp.index((((y + 0.5) - (image_height / 2.0)) / image_height)).add_copy(&rForward.index(d).sub_copy(camera.position.clone()));
@@ -549,7 +580,33 @@ fn main() {
 			rayOut = Ray3D { position: camera.position.clone(),
 					 direction: ~destY.sub_copy(camera.position.clone()).add_copy(&destX.sub_copy(camera.position.clone())).unit() };
 
-			int_length = sphere.intersect(rayOut, rii, -1.0);
+			int_length = -1.0;
+
+			// Intersect all spheres
+			for sph in scene_spheres.iter() {
+				let mut item = sph.clone();
+				let temp_intersection = item.intersect(rayOut.clone(), rii_temp, -1.0);
+
+				if(int_length == -1.0 || (temp_intersection < int_length && temp_intersection != -1.0)) {
+					rii.material = rii_temp.material.clone();
+					rii.iCoordinate = rii_temp.iCoordinate.clone();
+					rii.normal = rii_temp.normal.clone();
+					int_length = temp_intersection.clone();
+				}
+			}
+
+			// Intersect all triangles
+			for tri in scene_triangles.iter() {
+				let mut item = tri.clone();
+				let temp_intersection = item.intersect(rayOut.clone(), rii_temp, -1.0);
+
+				if(int_length == -1.0 || (temp_intersection < int_length && temp_intersection != -1.0)) {
+					rii.material = rii_temp.material.clone();
+					rii.iCoordinate = rii_temp.iCoordinate.clone();
+					rii.normal = rii_temp.normal.clone();
+					int_length = temp_intersection.clone();
+				}
+			}
 
 			if(int_length > 0.0) {
 				// Hit, get color
@@ -558,8 +615,6 @@ fn main() {
 				let hit_diffuse = dir_light.getDiffuse(rii);
 				let hit_specular = dir_light.getSpecular(*camera.position.clone(), rii);
 				let hit_color = hit_ambient.add_copy(&hit_emissive).add_copy(&hit_diffuse).add_copy(&hit_specular).clamp();
-				//let hit_color = hit_ambient.add_copy(&hit_emissive).add_copy(&hit_diffuse).add_copy(&hit_specular);
-				//TODO: DOUBLE CHECK CLAMP FUNCTION HERE.
 
 				let tmp: color = color { red: hit_color.position[0] as float, blue: hit_color.position[2] as float, green: hit_color.position[1] as float };
 				colormap.push(tmp);
