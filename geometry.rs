@@ -9,10 +9,10 @@ use std::io::*;
 use std::io::file_reader;
 use std::io::file_writer;
 use std::path;
-use std::str;
-use std::f32::*;
-use std::f32;
-use std::float;
+// use std::str;
+// use std::f32::*;
+// use std::f32;
+// use std::float;
 
 use extra::arc;
 
@@ -802,7 +802,7 @@ fn main() {
 	}
 
 	// Load light
-	let mut dir_light: RayDirectionalLight = RayDirectionalLight {
+	let dir_light: RayDirectionalLight = RayDirectionalLight {
 		color: ~Point3D { position: ~[ld[0], ld[1], ld[2]] },
 		direction: ~Point3D { position: ~[ld[3], ld[4], ld[5]] }	
 	};
@@ -813,7 +813,7 @@ fn main() {
 	let mut x = image_width;
 	let mut y = image_height;
 
-    let mut colormap: ~[color] = ~[];
+    let colormap: ~[color] = ~[];
     let shared_colormap = arc::RWArc::new(colormap);
     let shared_scene_spheres = arc::Arc::new(scene_spheres);
     let shared_scene_triangles = arc::Arc::new(scene_triangles);
@@ -821,9 +821,6 @@ fn main() {
     let shared_dir_light = arc::Arc::new(dir_light);
     let shared_ambient = arc::Arc::new(ambient);
     let shared_background = arc::Arc::new(background);
-
-	
-	let mut colormap: ~[color] = ~[];
 
 	// Now we iterate through the image plane
 	while(y > 0.0)	{
@@ -842,9 +839,9 @@ fn main() {
             do spawn {
 
                 let d = 1.0;
-                let mut int_length = 0.0;
-                let theta = task_camera.get().heightAngle / 2.0;
-                let phi = (task_camera.get().aspectRatio * task_camera.get().heightAngle) / 2.0;
+                
+                // let theta = task_camera.get().heightAngle / 2.0;
+                // let phi = (task_camera.get().aspectRatio * task_camera.get().heightAngle) / 2.0;
                 let rUp = Ray3D { position: task_camera.get().position.clone(), direction: ~task_camera.get().up.clone().unit() };
                 let rRight = Ray3D { position: task_camera.get().position.clone(), direction: ~task_camera.get().right.clone().unit() };
                 let rForward = Ray3D { position: task_camera.get().position.clone(), direction: ~task_camera.get().direction.clone().unit() };
@@ -857,7 +854,7 @@ fn main() {
                 // Must construct ray intersection info and temporary info for intersection calculations.
                 //   Populating with blank values is necessary to keep it working as we do a lot of cloning
                 //   up ahead.
-                let mut rii = &mut RayIntersectionInfo {
+                let rii = &mut RayIntersectionInfo {
                             material: RayMaterial {
                                 emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
                                 ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
@@ -868,7 +865,7 @@ fn main() {
                             iCoordinate: ~Point3D { position: ~[0.0, 0.0, 0.0] },
                             normal: ~Point3D { position: ~[0.0, 0.0, 0.0] }
                         };
-                let mut rii_temp = &mut RayIntersectionInfo {
+                let rii_temp = &mut RayIntersectionInfo {
                             material: RayMaterial {
                                 emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
                                 ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
@@ -886,7 +883,7 @@ fn main() {
     			rayOut = Ray3D { position: task_camera.get().position.clone(),
     					 direction: ~destY.sub_copy(task_camera.get().position.clone()).add_copy(&destX.sub_copy(task_camera.get().position.clone())).unit() };
 
-    			int_length = -1.0;
+    			let mut int_length = -1.0;
 
     			// Intersect all spheres
     			for sph in task_scene_spheres.get().iter() {
