@@ -1,6 +1,15 @@
 use std::ops::{Index};//,Add,Sub,Mul,Div,BitXor};
 use std::num;
 
+use std::io;
+use std::io::*;
+use std::io::file_reader;
+use std::io::file_writer;
+use std::path;
+use std::str;
+use std::f32::*;
+use std::f32;
+use std::float;
 
 ////////////////////////////////
 ////        Point3D         ////
@@ -446,7 +455,265 @@ struct color
 	blue: float
 }
 
+enum Attribute {
+	attr_camera,
+	attr_background,
+	attr_ambient,
+	attr_shape_sphere,
+	attr_attr_vertex_num,
+	attr_vertex,
+	attr_shape_triangle,
+	attr_light_num,
+	attr_light_dir,
+	attr_materials,
+	none
+}
+
 fn main() {
+	//////////////////////////////////////////////////
+	// USE THE RAY FILE TO GENERATE THE SCENE GRAPH //
+	//////////////////////////////////////////////////
+
+	let mut cam: ~[f64] = ~[];//attr_camera values
+	let mut bg: ~[f64] = ~[];//attr_background values
+	let mut amb: ~[f64] = ~[];//attr_ambient light values
+	let mut ss: ~[f64] = ~[];//attr_shape_sphere values
+	let mut vn: ~[f64] = ~[];//attr_vertex number values
+	let mut vert: ~[f64] = ~[];//attr_vertex values
+	let mut st: ~[f64] = ~[];//attr_shape_triangle values
+	let mut ln: ~[f64] = ~[];//light number values
+	let mut ld: ~[f64] = ~[];//light direction values
+	let mut mat: ~[f64] = ~[];//attr_materials values
+	let data = load_file(~"load.ray");
+	let mut tag: Attribute = none;
+	for i in data.iter() {
+		//println(fmt!("%s", *i));
+		if(i.contains("#camera")){
+			//println("found attr_camera line");
+			tag = attr_camera;
+		} else if (i.contains("#background")){
+			//println("found attr_background line");
+			tag = attr_background;
+		} else if (i.contains("#ambient")){
+			//println("found attr_ambient line");
+			tag = attr_ambient;
+		} else if (i.contains("#shape_sphere")){
+			//println("found attr_shape_sphere line");
+			for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {ss.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+			tag = attr_shape_sphere;
+		} else if (i.contains("#attr_vertex_num")){
+			//println("found attr_attr_vertex_num line");
+			tag = attr_attr_vertex_num;
+		} else if (i.contains("#vertex")){
+			//println("found attr_vertex line");
+			tag = attr_vertex;
+		} else if (i.contains("#shape_triangle")){
+			//println("found attr_shape_triangle line");
+			for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {st.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+			tag = attr_shape_triangle;
+		} else if (i.contains("#light_num")){
+			//println("found attr_light_num line");
+			tag = attr_light_num;
+		} else if (i.contains("#light_dir")){
+			//println("found attr_light_dir line");
+			tag = attr_light_dir;
+		} else if (i.contains("#material")){
+			//println("found attr_light_dir line");
+			tag = attr_materials;
+		} else if (i.contains("#material_num")){
+			//println("found attr_light_dir line");
+			tag = none;
+		} else {
+			match tag {
+				attr_camera => {//println("cam");
+				//split line and convert into numbers
+				for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {cam.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				
+				//cam = i.split_iter(' ').filter_map(std::f32::from_str).collect();
+
+				
+				}
+				attr_background => {//println("bg");
+				for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {bg.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				}
+				attr_ambient => {//println("amb");
+					for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {amb.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				}
+				attr_shape_sphere => {//println("ss");
+					for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {ss.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				}
+				attr_attr_vertex_num => {//println("vn");
+					for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {vn.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				}
+				attr_vertex => {//println("vert");
+					for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {vert.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				}
+				attr_shape_triangle => {//println("st");
+				for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {st.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				}
+				attr_light_num => {//println("ln");
+					for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {ln.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				}
+				attr_light_dir => {//println("ld");
+					for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {ld.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				}
+				attr_materials => {//println("mat");
+					for num in i.split_iter(' ') {
+					//println(num);
+					//cam.push( std::float::from_str_hex(num).unwrap());
+					match std::from_str::FromStr::from_str(num.trim_right()) {
+      					Some(v) => {mat.push(v);
+      						//println(fmt!("pushing float %f", v as float));
+      					},
+      					None    => {//println(fmt!("found non-float %s", num))
+				}
+    				}
+    				
+				}
+				}
+				none => {//println("problems");
+				}
+				
+			}
+		}
+	}
+
+	/////////////////////////////////////////////////////
+	// AND NOW BACK TO OUR REGULARLY SCHEDULED PROGRAM //
+	/////////////////////////////////////////////////////
+
+	// Camera
+	let camera: RayCamera = RayCamera {
+		color: ~Point3D { position: ~[0.25, 0.25, 0.25] },
+		heightAngle: cam[12],
+		aspectRatio: 1.0,
+		position: ~Point3D { position: ~[cam[0], cam[1], cam[2]] },
+		direction: ~Point3D { position: ~[cam[3], cam[4], cam[5]] },
+		up: ~Point3D { position: ~[cam[6], cam[7], cam[8]] },
+		right: ~Point3D { position: ~[cam[9], cam[10], cam[11]] }
+	};
+
 	/////////////////
 	// Image Plane //
 	/////////////////
@@ -456,77 +723,84 @@ fn main() {
 	////////////////
 	//   Scene    //
 	////////////////
-	let background = Point3D { position: ~[0.25, 0.25, 0.25] };
-	let ambient = Point3D { position: ~[0.5, 0.5, 0.5] };
+	let background = Point3D { position: ~[bg[0], bg[1], bg[2]] };
+	let ambient = Point3D { position: ~[amb[0], amb[1], amb[2]] };
 	let mut scene_triangles: ~[~RayTriangle] = ~[];
 	let mut scene_spheres: ~[~RaySphere] = ~[];
+	let mut scene_materials: ~[RayMaterial] = ~[];
+	let mut scene_vertices: ~[RayVertex] = ~[];
 
-	////////////////
-	// Triangle 1 //
-	////////////////
-	let t1_vertices = [	~Point3D { position: ~[-2.0, 0.0, 2.0] },
-				~Point3D { position: ~[2.0, 0.0, 2.0] },
-				~Point3D { position: ~[2.0, 0.0, -2.0] } ];
-	let normal = (t1_vertices[1].sub_copy(t1_vertices[0]).xproduct_copy(&(t1_vertices[2].sub_copy(t1_vertices[0])))).unit();
-	let distance = normal.dotproduct(&(t1_vertices[1].sub_copy(t1_vertices[0]).unit()));
+	// Load materials
+	let material_count = mat.len() / 13;
+	let mut cur_mat_load = 0;
+	let mut offset = 0;
+	while(cur_mat_load < material_count) {
+		scene_materials.push(RayMaterial {
+			emissive: ~Point3D { position: ~[mat[offset + 0], mat[offset + 1], mat[offset + 2]] },
+			ambient:  ~Point3D { position: ~[mat[offset + 3], mat[offset + 4], mat[offset + 5]] },
+			diffuse:  ~Point3D { position: ~[mat[offset + 6], mat[offset + 7], mat[offset + 8]] },
+			specular: ~Point3D { position: ~[mat[offset + 9], mat[offset + 10], mat[offset + 11]] },
+			specularFallOff: mat[offset + 12]
+		});
+		cur_mat_load += 1;
+		offset += 13;
+	}
 
-	let mut triangle_1 = RayTriangle {
-		normal: ~normal,
-		distance: distance,
-		vertexes: ~[
-			~RayVertex { index: 0, position: ~Point3D { position: ~[-2.0, 0.0, 2.0] }, normal: ~Point3D { position: ~[0.0, 1.0, 0.0] } },
-			~RayVertex { index: 1, position: ~Point3D { position: ~[2.0, 0.0, 2.0] }, normal: ~Point3D { position: ~[0.0, 1.0, 0.0] } },
-			~RayVertex { index: 2, position: ~Point3D { position: ~[2.0, 0.0, -2.0] }, normal: ~Point3D { position: ~[0.0, 1.0, 0.0] } }
-			],
-		material: ~RayMaterial {
-			emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-			ambient: ~Point3D { position: ~[0.3, 0.3, 0.3] },
-			diffuse: ~Point3D { position: ~[0.1, 0.1, 0.5] },
-			specular: ~Point3D { position: ~[1.0, 1.0, 1.0] },
-			specularFallOff: 100.0
-		}
+	// Load spheres
+	let sphere_count = ss.len() / 5;
+	let mut cur_sphere_load = 0;
+	offset = 0;
+	while(cur_sphere_load < sphere_count) {
+		scene_spheres.push(~RaySphere {
+			center: ~Point3D { position: ~[ss[offset + 1], ss[offset + 2], ss[offset + 3]] },
+			radius: ss[offset + 4],
+			material: ~scene_materials[ss[offset + 0] as int].clone()
+		});
+		cur_sphere_load += 1;
+		offset += 5;
+	}
+
+	// Load vertices
+	let vertex_count = vert.len() / 6;
+	let mut cur_vertex_load = 0;
+	offset = 0;
+	while(cur_vertex_load < vertex_count) {
+		scene_vertices.push(RayVertex {
+			index: 0,
+			position: ~Point3D { position: ~[vert[offset + 0], vert[offset + 1], vert[offset + 2]] },
+			normal: ~Point3D { position: ~[vert[offset + 3], vert[offset + 4], vert[offset + 5]] }
+		});
+		cur_vertex_load += 1;
+		offset += 6;
+	}
+
+	// Load triangles
+	let triangle_count = st.len() / 4;
+	let mut cur_triangle_load = 0;
+	offset = 0;
+	while(cur_triangle_load < triangle_count) {
+		let t_vertices = [	scene_vertices[st[offset + 1] as int].clone().position,
+					scene_vertices[st[offset + 2] as int].clone().position,
+					scene_vertices[st[offset + 3] as int].clone().position ];
+		let normal = (t_vertices[1].sub_copy(t_vertices[0]).xproduct_copy(&(t_vertices[2].sub_copy(t_vertices[0])))).unit();
+		let distance = normal.dotproduct(&(t_vertices[1].sub_copy(t_vertices[0]).unit()));
+		
+		scene_triangles.push(~RayTriangle {
+			normal: ~normal,
+			distance: distance,
+			vertexes: ~[ ~scene_vertices[st[offset + 1] as int].clone(), ~scene_vertices[st[offset + 2] as int].clone(), ~scene_vertices[st[offset + 3] as int].clone() ],
+			material: ~scene_materials[st[offset] as int].clone()
+		});
+		cur_triangle_load += 1;
+		offset += 4;
+	}
+
+	// Load light
+	let mut dir_light: RayDirectionalLight = RayDirectionalLight {
+		color: ~Point3D { position: ~[ld[0], ld[1], ld[2]] },
+		direction: ~Point3D { position: ~[ld[3], ld[4], ld[5]] }	
 	};
 	
-	scene_triangles.push(~triangle_1);
-
-	////////////////
-	//   Sphere   //
-	////////////////
-	let mut sphere: RaySphere = RaySphere {
-		center: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-		radius: 1.0,
-		material: ~RayMaterial {
-			emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-			ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
-			diffuse: ~Point3D { position: ~[0.25, 0.25, 0.25] },
-			specular: ~Point3D { position: ~[0.75, 0.75, 0.75] },
-			specularFallOff: 128.0
-		}
-	};
-
-	scene_spheres.push(~sphere);
-
-	////////////////
-	//   Camera   //
-	////////////////
-	let camera: RayCamera = RayCamera {
-		color: ~Point3D { position: ~[0.5, 0.5, 0.5] },
-		heightAngle: 0.523,
-		aspectRatio: 1.0,
-		position: ~Point3D { position: ~[0.0, 10.0, 10.0] },
-		direction: ~Point3D { position: ~[0.0, -1.0, -1.0] },
-		up: ~Point3D { position: ~[0.0, 1.0, -1.0] },
-		right: ~Point3D { position: ~[-1.0, 0.0, 0.0] }
-	};
-
-	////////////////
-	//   Light    //
-	////////////////
-	let mut dir_light: RayDirectionalLight = RayDirectionalLight {
-		direction: ~Point3D { position: ~[-1.0, -1.0, 0.0] },
-		color: ~Point3D { position: ~[1.0, 1.0, 1.0] }
-	};
-
 	///////////////////////////////////
 	// Cast rays through image plane //
 	///////////////////////////////////
@@ -633,27 +907,39 @@ fn main() {
 	// reset x and y
 	y = 0.0;
 	x = 0.0;
-	// output image as Netppm pixmap
-	println("P3");
-	print(fmt!("%?",image_width as int));
-	print(" ");
-	println(fmt!("%?", image_height as int));
-	println("255");
-	while y < image_height {
-		while x < image_width {
-			let red = (colormap[(y*image_width+x) as int].red * (255 as float) );
-			let green = (colormap[(y*image_width+x) as int].green * (255 as float) );
-			let blue = (colormap[(y*image_width+x) as int].blue * (255 as float) );
-			print(fmt!("%?", red as int));
-			print(" ");
-			print(fmt!("%?", green as int));
-			print(" ");
-			print(fmt!("%?", blue as int));
-			print(" ");
-			x += 1.0;
-		}
-		println("");
-		x = 0.0;
-		y += 1.0;
+
+	let filewriter: Result<@Writer, ~str> = io::file_writer(~path::Path("render.ppm"), &[Create]);
+
+	match filewriter {
+		Ok(writer) => {
+			// output image as Netppm pixmap
+			writer.write_line("P3");
+			writer.write_str(fmt!("%? ",image_width as int));
+			writer.write_line(fmt!("%?", image_height as int));
+			writer.write_line("255");
+			while y < image_height {
+				while x < image_width {
+					let red = (colormap[(y*image_width+x) as int].red * (255 as float) );
+					let green = (colormap[(y*image_width+x) as int].green * (255 as float) );
+					let blue = (colormap[(y*image_width+x) as int].blue * (255 as float) );
+					writer.write_str(fmt!("%? ", red as int));
+					writer.write_str(fmt!("%? ", green as int));
+					writer.write_str(fmt!("%? ", blue as int));
+					x += 1.0;
+				}
+				writer.write_line("");
+				x = 0.0;
+				y += 1.0;
+			}
+		},
+		Err(msg) => fail!("Cannot open file: " + msg)
 	}
+}
+
+fn load_file(pathname : ~str) -> ~[~str] {
+    let filereader : Result<@Reader, ~str> = io::file_reader(~path::Path(pathname));
+    match filereader {
+        Ok(reader) => reader.read_lines(),
+        Err(msg) => fail!("Cannot open file: " + msg),
+    }
 }
