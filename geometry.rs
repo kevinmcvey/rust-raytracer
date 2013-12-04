@@ -5,6 +5,7 @@ use std::num;
 ////////////////////////////////
 ////        Point3D         ////
 ////////////////////////////////
+#[deriving(Clone)]
 pub struct Point3D {
     position:       ~[f64] //f64 is rust's double
 }
@@ -144,7 +145,7 @@ impl Point3D {
 
     fn xproduct<'a>(&'a mut self, other: &Point3D) -> &'a mut Point3D {
         let coord1: f64 = self.index(1) * other.index(2) - self.index(2) * other.index(1);
-        let coord2: f64 = self.index(0) * other.index(2) + self.index(2) * other.index(0);
+        let coord2: f64 = -self.index(0) * other.index(2) + self.index(2) * other.index(0);
         let coord3: f64 = self.index(0) * other.index(1) - self.index(1) * other.index(0);
         *self.index_mutref(0) = coord1;
         *self.index_mutref(1) = coord2;
@@ -154,7 +155,7 @@ impl Point3D {
 
     fn xproduct_copy<'a>(&'a self, other: &Point3D) -> Point3D {
         let coord1: f64 = self.index(1) * other.index(2) - self.index(2) * other.index(1);
-        let coord2: f64 = self.index(0) * other.index(2) + self.index(2) * other.index(0);
+        let coord2: f64 = -self.index(0) * other.index(2) + self.index(2) * other.index(0);
         let coord3: f64 = self.index(0) * other.index(1) - self.index(1) * other.index(0);
         let new_point: Point3D = Point3D { position: ~[ coord1,
                                                         coord2,
@@ -386,7 +387,7 @@ struct RayTriangle {
     normal:         ~Point3D,
     distance:       f64,
     vertexes:       ~[~RayVertex],
-    plane:          ~Plane3D,
+    //plane:          ~Plane3D,
     material:       ~RayMaterial,
 }
 
@@ -426,5 +427,149 @@ impl RayTriangle {
     }
 }
 
-fn main(){ 
+
+struct color 
+{
+	// colors range 0..1
+	red: float,
+	green: float,
+	blue: float
+}
+
+fn main() {
+	let image_width = 500.0;
+	let image_height = 500.0;
+
+	////////////////
+	// Triangle 1 //
+	////////////////
+	let t1_vertices = [	~Point3D { position: ~[-2.0, 0.0, 2.0] },
+				~Point3D { position: ~[2.0, 0.0, 2.0] },
+				~Point3D { position: ~[2.0, 0.0, -2.0] } ];
+	let normal = (t1_vertices[1].sub_copy(t1_vertices[0]).xproduct_copy(&(t1_vertices[2].sub_copy(t1_vertices[0])))).unit();
+	let distance = normal.dotproduct(&(t1_vertices[1].sub_copy(t1_vertices[0]).unit()));
+
+	let mut triangle_1 = RayTriangle {
+		normal: ~normal,
+		distance: distance,
+		vertexes: ~[
+			~RayVertex { index: 0, position: ~Point3D { position: ~[-2.0, 0.0, 2.0] }, normal: ~Point3D { position: ~[0.0, 1.0, 0.0] } },
+			~RayVertex { index: 1, position: ~Point3D { position: ~[2.0, 0.0, 2.0] }, normal: ~Point3D { position: ~[0.0, 1.0, 0.0] } },
+			~RayVertex { index: 2, position: ~Point3D { position: ~[2.0, 0.0, -2.0] }, normal: ~Point3D { position: ~[0.0, 1.0, 0.0] } }
+			],
+		material: ~RayMaterial {
+			emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+			ambient: ~Point3D { position: ~[0.3, 0.3, 0.3] },
+			diffuse: ~Point3D { position: ~[0.1, 0.1, 0.5] },
+			specular: ~Point3D { position: ~[1.0, 1.0, 1.0] },
+			specularFallOff: 100.0
+		}
+	};
+
+	////////////////
+	//   Sphere   //
+	////////////////
+	let mut sphere: RaySphere = RaySphere {
+		center: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+		radius: 1.0,
+		material: ~RayMaterial {
+			emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+			ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+			diffuse: ~Point3D { position: ~[0.25, 0.25, 0.25] },
+			specular: ~Point3D { position: ~[0.75, 0.75, 0.75] },
+			specularFallOff: 128.0
+		}
+	};
+
+	////////////////
+	//   Camera   //
+	////////////////
+	let camera: RayCamera = RayCamera {
+		color: ~Point3D { position: ~[0.5, 0.5, 0.5] },
+		heightAngle: 0.523,
+		aspectRatio: 1.0,
+		position: ~Point3D { position: ~[0.0, 10.0, 10.0] },
+		direction: ~Point3D { position: ~[0.0, -1.0, -1.0] },
+		up: ~Point3D { position: ~[0.0, 1.0, -1.0] },
+		right: ~Point3D { position: ~[-1.0, 0.0, 0.0] }
+	};
+
+	///////////////////////////////////
+	// Cast rays through image plane //
+	///////////////////////////////////
+	let mut x = 0.0;
+	let mut y = 0.0;
+	let d = 1.0;
+	let theta = camera.heightAngle / 2.0;
+	let phi = (camera.aspectRatio * camera.heightAngle) / 2.0;
+	let rUp = Ray3D { position: camera.position.clone(), direction: ~camera.up.clone().unit() };
+	let rRight = Ray3D { position: camera.position.clone(), direction: ~camera.right.clone().unit() };
+	let rForward = Ray3D { position: camera.position.clone(), direction: ~camera.direction.clone().unit() };
+
+	let mut destX: @mut Point3D;
+	let mut destY: @mut Point3D;
+	let mut rayOut: Ray3D;
+	let mut rii = &mut RayIntersectionInfo {
+				material: RayMaterial {
+					emissive: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+					ambient: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+					diffuse: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+					specular: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+					specularFallOff: 0.0
+				},
+				iCoordinate: ~Point3D { position: ~[0.0, 0.0, 0.0] },
+				normal: ~Point3D { position: ~[0.0, 0.0, 0.0] }
+			};
+	let mut int_length = 0.0;
+	let mut colormap: ~[color] = ~[];
+
+	while(y < image_height)	{
+		while(x < image_width) {
+			destY = rUp.index((((y + 0.5) - (image_height / 2.0)) / image_height)).add_copy(&rForward.index(d).sub_copy(camera.position.clone()));
+			destX = rRight.index((((x + 0.5) - (image_width / 2.0)) / image_width)).add_copy(&rForward.index(d).sub_copy(camera.position.clone()));
+			rayOut = Ray3D { position: camera.position.clone(),
+					 direction: ~destY.sub_copy(camera.position.clone()).add_copy(&destX.sub_copy(camera.position.clone())).unit() };
+
+			int_length = triangle_1.intersect(rayOut, rii, -1.0);
+
+			if(int_length > 0.0) {
+				let tmp: color = color { red: 1.0, blue: 1.0, green: 1.0 };
+				colormap.push(tmp);
+			} else {
+				let tmp: color = color { red: 0.0, blue: 0.0, green: 0.0 };
+				colormap.push(tmp);
+			}
+
+			x += 1.0;
+		}
+		x = 0.0;
+		y += 1.0;
+	}
+
+	// reset x and y
+	y = 0.0;
+	x = 0.0;
+	// output image as Netppm pixmap
+	println("P3");
+	print(fmt!("%?",image_width as int));
+	print(" ");
+	println(fmt!("%?", image_height as int));
+	println("255");
+	while y < image_height {
+		while x < image_width {
+			let red = (colormap[(y*image_width+x) as int].red * (255 as float) );
+			let green = (colormap[(y*image_width+x) as int].green * (255 as float) );
+			let blue = (colormap[(y*image_width+x) as int].blue * (255 as float) );
+			print(fmt!("%?", red as int));
+			print(" ");
+			print(fmt!("%?", green as int));
+			print(" ");
+			print(fmt!("%?", blue as int));
+			print(" ");
+			x += 1.0;
+		}
+		println("");
+		x = 0.0;
+		y += 1.0;
+	}
 }
