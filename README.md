@@ -14,7 +14,7 @@ Using rust-raytracer is a snap: simply download geometry.rs and load.ray, compil
 Scene Setup Commands
 --------------------
 
-Rust-Raytracer automatically loads scene-graph definitions from the included load.ray file.  Its markup is documented below:
+Rust-Raytracer automatically loads scene-graph definitions from the included load.ray file.  Its markup is documented below.  Note that the coordinate system has an origin at (0, 0, 0) and negative values are acceptable.  Colors are defined using floating point numbers ranging from 0 to 1; (0.0, 0.5, 1.0) for instance, would render the hex color #007F7FFF.
 
     #camera
     px py pz
