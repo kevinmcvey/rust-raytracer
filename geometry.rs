@@ -9,10 +9,6 @@ use std::io::*;
 use std::io::file_reader;
 use std::io::file_writer;
 use std::path;
-// use std::str;
-// use std::f32::*;
-// use std::f32;
-// use std::float;
 
 use extra::arc;
 
