@@ -1,4 +1,4 @@
-rust-raytracer
+Rust-Raytracer
 ==============
 
 Rust-Raytracer is a complete 3D renderer written in Rust!  This program simulates the movement of light in a user-provided scene in order to produce "realistic" images with great mathematic accuracy.  Some key features include:
@@ -10,6 +10,7 @@ Rust-Raytracer is a complete 3D renderer written in Rust!  This program simulate
 
 Using rust-raytracer is a snap: simply download geometry.rs and load.ray, compile geometry.rs, and run!
 
+Rust-Raytracer was created with love by Kevin McVey, Kelvin Green, Nathaniel Hart, and Jon Goss from the University of Virginia as a part of [CS4414 - Operating Systems](http://rust-class.org/), the world's first collegiate course to use [Rust](http://www.rust-lang.org/).
 
 Scene Setup Commands
 --------------------
