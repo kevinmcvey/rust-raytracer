@@ -1,7 +1,7 @@
 Rust-Raytracer
 ==============
 
-**NOTE:** This repository was created over two years ago and was built on Rust 0.7. Since this project's inception, Rust has gone through significant changes that has made it a more elegant, mature language&mdash;however, in this process, Rust-Raytracer has become obsolete and uncompilable. I'm leaving this repository here for legacy purposes and to support the wonderful contributions of Professor David Evans at the University of Virginia for the betterment of the Rust community.
+**NOTE:** This repository was created over two years ago and was built on Rust 0.7. Since this project's inception, Rust has gone through significant changes that have made it a more elegant, mature language&mdash;however, in this process, Rust-Raytracer has become obsolete and uncompilable. I'm leaving this repository here for legacy purposes and to support the wonderful contributions of Professor David Evans at the University of Virginia for the betterment of the Rust community.
 
 ---
 
